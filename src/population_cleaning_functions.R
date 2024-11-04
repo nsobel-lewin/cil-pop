@@ -1,5 +1,4 @@
 load_population <- function(datadir, product, year) {
-  library(tidyverse)
 
   # check that product is incorporated 
   product_list <- c("landscan")
@@ -13,9 +12,10 @@ load_population <- function(datadir, product, year) {
   
   # call product-specific load function 
   if (product == "landscan") {
-    load_landscan_population(datadir, product, year)
+    spat_rast <- load_landscan_population(datadir, year)
   }
   
+  return(spat_rast)
 }
 
 # Product-specific functions ----
@@ -36,12 +36,15 @@ load_landscan_population <- function(datadir, year) {
     )
     stop(no_year_error)
   }
-  
-  terra::rast(
+
+  spat_rast <- terra::rast(
     str_c(
-      datadir, "data/landscan-global-", year, "-assets/landscan-global-", year, ".tif"
+      datadir, "data/landscan/landscan-global-", year, 
+      "-assets/landscan-global-", year, "-lzw.tif"
     )
   )
+  
+  return(spat_rast)
 
 }
 
