@@ -1,3 +1,4 @@
+# Population loaders ----
 load_population <- function(datadir, product, year) {
 
   # check that product is incorporated 
@@ -18,7 +19,7 @@ load_population <- function(datadir, product, year) {
   return(spat_rast)
 }
 
-# Product-specific functions ----
+## Product-specific functions ----
 load_landscan_population <- function(datadir, year) {
   
   # check that year has been downloaded 
@@ -48,5 +49,92 @@ load_landscan_population <- function(datadir, year) {
 
 }
 
+# Aggregate and Scale IR-level Populations ----
+scale_ir_pop <- function(datadir, ir_pop) {
+
+  year <- ir_pop$year[1]
+  un_pop <- load_un_population(datadir, year) %>% 
+    rename(un_pop = pop) %>% 
+    select(ISO, un_pop)
+  
+  scale_factor <- ir_pop %>% 
+    select(ISO, pop) %>% 
+    summarize(ir_pop = sum(pop), .by = ISO) %>% 
+    left_join(un_pop, by = "ISO") %>% 
+    mutate(scale_factor = if_else(is.na(un_pop), 1, un_pop / ir_pop), .keep = "unused")
+  
+  ir_pop %>% 
+    left_join(scale_factor, by = "ISO") %>% 
+    mutate(pop = pop * scale_factor, .keep = "unused") %>% 
+    return()
+  
+}
 
 
+
+aggregate_pop_to_ir <- function(datadir, product, year) {
+  
+  shps <- load_shapefile(datadir)
+  
+  gridded_pops <- load_population(datadir, product, year)
+
+  # Convert polygon CRS to raster CRS & fix bounding box
+  sf::st_crs(shps) <- sf::st_crs(gridded_pops)
+  attr(sf::st_geometry(shps), "bbox") <- 
+    structure(
+      c(-180, -90, 180, 90),
+      names = c("xmin", "ymin", "xmax", "ymax"),
+      class = "bbox")
+  
+  # Compute population in each polygon
+  aggregated_pop <- 
+    bind_cols(
+      sf::st_drop_geometry(shps),
+      year = year,
+      source = product,
+      rescaled = F,
+      pop = 
+        exactextractr::exact_extract(
+          x = gridded_pops, 
+          y = shps, 
+          fun = "sum",
+          progress = F
+      )
+    )
+    
+  return(aggregated_pop)
+  
+}
+  
+  
+  
+## Helpers ----
+load_shapefile <- function(datadir) {
+  shp_file_path <- str_c(datadir, "data/shapefiles/agglomerated-world-new.shp")
+  shp <- sf::st_read(shp_file_path) %>% 
+    select(gadmid, hierid, ISO) %>% 
+  return(shp)
+}
+
+load_un_population <- function(datadir, year, Variant = NULL) {
+  un_file_path <- str_c(datadir, "data/UN/WPP2024_TotalPopulationBySex.csv")
+  un <- read_csv(un_file_path, col_select = c(ISO3_code, Time, Variant, PopTotal),
+                 show_col_types = F) %>% 
+    rename(ISO = ISO3_code, pop = PopTotal, year = Time) %>% 
+    # Variant is used for projections
+    filter(!is.na(ISO) & year == !!year) %>%
+    {if (!is.null(Variant)) filter(., Variant == !!Variant) else .} %>% 
+    select(ISO, year, pop) %>% 
+    # Convert pop from 1,000s to 1s 
+    mutate(pop = pop * 1e3)
+  
+  duplicated_iso_error <- str_c(
+    "ISOs are duplicated for ", year, 
+    ". The UN population counts are likely projections. 
+    Use the 'Variant' argument to choose a projection."
+  )
+  if(any(duplicated(un$ISO))) stop(duplicated_iso_error)
+  
+  return(un)
+}
+  
