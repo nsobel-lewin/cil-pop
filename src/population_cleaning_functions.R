@@ -1,4 +1,4 @@
-# Population loaders ----
+# Population loading functions ----
 load_population <- function(datadir, product, year) {
 
   # check that product is incorporated 
@@ -19,7 +19,7 @@ load_population <- function(datadir, product, year) {
   return(spat_rast)
 }
 
-## Product-specific functions ----
+## Product-specific loading functions ----
 load_landscan_population <- function(datadir, year) {
   
   # check that year has been downloaded 
@@ -49,29 +49,7 @@ load_landscan_population <- function(datadir, year) {
 
 }
 
-# Aggregate and Scale IR-level Populations ----
-scale_ir_pop <- function(datadir, ir_pop) {
-
-  year <- ir_pop$year[1]
-  un_pop <- load_un_population(datadir, year) %>% 
-    rename(un_pop = pop) %>% 
-    select(ISO, un_pop)
-  
-  scale_factor <- ir_pop %>% 
-    select(ISO, pop) %>% 
-    summarize(ir_pop = sum(pop), .by = ISO) %>% 
-    left_join(un_pop, by = "ISO") %>% 
-    mutate(scale_factor = if_else(is.na(un_pop), 1, un_pop / ir_pop), .keep = "unused")
-  
-  ir_pop %>% 
-    left_join(scale_factor, by = "ISO") %>% 
-    mutate(pop = pop * scale_factor, .keep = "unused") %>% 
-    return()
-  
-}
-
-
-
+# Aggregation and scaling IR-level populations functions ----
 aggregate_pop_to_ir <- function(datadir, product, year) {
   
   shps <- load_shapefile(datadir)
@@ -106,9 +84,28 @@ aggregate_pop_to_ir <- function(datadir, product, year) {
   
 }
   
+scale_ir_pop <- function(datadir, ir_pop) {
   
+  year <- ir_pop$year[1]
+  un_pop <- load_un_population(datadir, year) %>% 
+    rename(un_pop = pop) %>% 
+    select(ISO, un_pop)
   
-## Helpers ----
+  scale_factor <- ir_pop %>% 
+    select(ISO, pop) %>% 
+    summarize(ir_pop = sum(pop), .by = ISO) %>% 
+    left_join(un_pop, by = "ISO") %>% 
+    # UN Pop data is missing for a few small islands, so set scale to 1
+    mutate(scale_factor = if_else(is.na(un_pop), 1, un_pop / ir_pop), .keep = "unused")
+  
+  ir_pop %>% 
+    left_join(scale_factor, by = "ISO") %>% 
+    mutate(pop = pop * scale_factor, rescaled = T, .keep = "unused") %>% 
+    return()
+  
+}
+
+## Other loading functions ----
 load_shapefile <- function(datadir) {
   shp_file_path <- str_c(datadir, "data/shapefiles/agglomerated-world-new.shp")
   shp <- sf::st_read(shp_file_path) %>% 
@@ -125,8 +122,11 @@ load_un_population <- function(datadir, year, Variant = NULL) {
     filter(!is.na(ISO) & year == !!year) %>%
     {if (!is.null(Variant)) filter(., Variant == !!Variant) else .} %>% 
     select(ISO, year, pop) %>% 
-    # Convert pop from 1,000s to 1s 
-    mutate(pop = pop * 1e3)
+    mutate(
+      # Convert pop from 1,000s to 1s 
+      pop = pop * 1e3,
+      # Convert Kosovo ISO to adhere to CIL standard
+      ISO = if_else(ISO == "XKX", "KO-", ISO))
   
   duplicated_iso_error <- str_c(
     "ISOs are duplicated for ", year, 
