@@ -68,6 +68,7 @@ for (product in products) {
     for (rescaled in c(T, F)) {
       print(make_pop_plot(datadir, simplified_shp, product, year, rescaled))
     }
+    print(make_pop_diff_plot(datadir, simplified_shp, product, year))
   }
 }
 ```

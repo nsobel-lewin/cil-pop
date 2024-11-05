@@ -85,8 +85,8 @@ make_pop_plot <- function(datadir, simplified_shp, product, year, rescaled) {
       labels = c("<1,000", "10,000", "100,000", ">1,000,000"),
       limits = c(3, 6),
       oob = scales::squish) +
-    labs(title = str_c(str_to_sentence(product), " - ", year, 
-                       if_else(rescaled, " - rescaled", ""))) +
+    labs(title = str_c("Population (", str_to_sentence(product), 
+                       if_else(rescaled, " Rescaled", ""), ", ", year, ")")) +
     theme_void() +
     theme(axis.title.y = element_blank(),
           legend.title = element_blank(),
@@ -95,6 +95,43 @@ make_pop_plot <- function(datadir, simplified_shp, product, year, rescaled) {
   
   return(plot)
 }
+
+make_pop_diff_plot <- function(datadir, simplified_shp, product, year) {
+  
+  ir_pop <- read_csv(str_c(datadir, "processed/ir_population_data.csv"),
+                     show_col_types = F) %>% 
+    filter(year == !!year & source == product) %>% 
+    pivot_wider(values_from = pop, names_from = rescaled_to_sum_to_un_pop, 
+                names_prefix = "rescaled_") %>% 
+    mutate(diff = rescaled_TRUE - rescaled_FALSE) %>% 
+    select(gadmid, diff)
+  
+  plot_data <- simplified_shp %>% 
+    full_join(ir_pop, by = "gadmid") %>% 
+    # Drop Antarctica
+    filter(gadmid != 2836) %>% 
+    select(-gadmid)
+  
+  plot <- ggplot(plot_data, aes(fill = diff)) +
+    geom_sf(linewidth = 0) +
+    scale_fill_gradient2(
+      low = "dodgerblue3",
+      mid = "grey90",
+      high = "firebrick3",
+      breaks = c(-25e3, 0, 25e3, 50e3),
+      labels = c("<-25,000", "0", "25,000", ">50,000"),
+      limits = c(-25e3, 50e3),
+      oob = scales::squish) +
+    labs(title = str_c("Scaled pop. - unscaled pop. (", str_to_sentence(product), ", ", year, ")")) +
+    theme_void() +
+    theme(axis.title.y = element_blank(),
+          legend.title = element_blank(),
+          legend.key.width = unit(2.5, "cm"),
+          legend.position = "bottom") 
+  
+  return(plot)
+}
+
 
 # Helper functions ----
 load_simplified_shapefile <- function(datadir) {
