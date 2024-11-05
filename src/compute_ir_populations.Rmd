@@ -10,20 +10,20 @@ library(furrr)
 source("compute_ir_populations_fns.R")
 source("validate_ir_populations_fns.R")
 datadir <- "/project/cil/gcp/population/"
+products <- c("landscan")
+years <- c(2015, 2020, 2022)
 ```
 
 # Processing 
-```{r processing}
+```{r processing, eval = F}
 # Get full set of products and years
-products <- c("landscan")
-years <- c(2015, 2020, 2022)
 specs <- expand_grid(
   datadir = datadir,
   product = products, 
   year = years)
 
 # Compute IR-level populations
-par_workers <- min(nrow(specs), parallelly::availableCores() - 1)
+par_workers <- parallelly::availableCores()
 plan(multisession, workers = par_workers)
 
 pops <- specs %>% 
@@ -45,14 +45,31 @@ write_csv(pops, out_path)
 ```
 
 # Validation
-```{r validation-density plots}
+## Density plots
+```{r validation-density plots, echo = F}
 for (product in products) {
   for (year in years) {
     
-    make_rescale_factor_density_plot(datadir, product, year)
+    print(make_rescale_factor_density_plot(datadir, product, year))
     
-    make_pop_diff_density_plot(datadir, product, year)
+    print(make_pop_diff_density_plot(datadir, product, year))
     
   }
 }
 ```
+
+
+## Maps
+```{r validation-pop maps, echo = F}
+simplified_shp <- load_simplified_shapefile(datadir)
+
+for (product in products) {
+  for (year in years) {
+    for (rescaled in c(T, F)) {
+      print(make_pop_plot(datadir, simplified_shp, product, year, rescaled))
+    }
+  }
+}
+```
+
+
