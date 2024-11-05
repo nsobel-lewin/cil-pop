@@ -56,13 +56,8 @@ aggregate_pop_to_ir <- function(datadir, product, year) {
   
   gridded_pops <- load_population(datadir, product, year)
 
-  # Convert polygon CRS to raster CRS & fix bounding box
+  # Convert polygon CRS to raster CRS
   sf::st_crs(shps) <- sf::st_crs(gridded_pops)
-  attr(sf::st_geometry(shps), "bbox") <- 
-    structure(
-      c(-180, -90, 180, 90),
-      names = c("xmin", "ymin", "xmax", "ymax"),
-      class = "bbox")
   
   # Compute population in each polygon
   aggregated_pop <- 
@@ -107,9 +102,20 @@ scale_ir_pop <- function(datadir, ir_pop) {
 
 ## Other loading functions ----
 load_shapefile <- function(datadir) {
+  
   shp_file_path <- str_c(datadir, "data/shapefiles/agglomerated-world-new.shp")
   shp <- sf::st_read(shp_file_path, quiet = T) %>% 
-    select(gadmid, hierid, ISO) %>% 
+    select(gadmid, hierid, ISO)
+  
+  # Fix bounding boxß
+  attr(sf::st_geometry(shp), "bbox") <- 
+    structure(
+      c(-180, -90, 180, 90),
+      names = c("xmin", "ymin", "xmax", "ymax"),
+      class = "bbox")
+  
+  sf::st_crs(shp) <- 4326
+  
   return(shp)
 }
 
