@@ -108,7 +108,7 @@ scale_ir_pop <- function(datadir, ir_pop) {
 ## Other loading functions ----
 load_shapefile <- function(datadir) {
   shp_file_path <- str_c(datadir, "data/shapefiles/agglomerated-world-new.shp")
-  shp <- sf::st_read(shp_file_path) %>% 
+  shp <- sf::st_read(shp_file_path, quiet = T) %>% 
     select(gadmid, hierid, ISO) %>% 
   return(shp)
 }

@@ -20,16 +20,25 @@ specs <- expand_grid(
   product = products, 
   year = years)
 
+# Compute IR-level populations
 par_workers <- min(nrow(specs), parallelly::availableCores() - 1)
 plan(multisession, workers = par_workers)
 
-pop_dfs <- specs %>% 
+pops <- specs %>% 
   mutate(
-    unscaled_pop_df = future_pmap(., aggregate_pop_to_ir),
-    scaled_pop_df = future_map2(
-      datadir, unscaled_pop_df, 
-      ~scale_ir_pop(.x, .y))
-  )
+    unscaled_pop_df = furrr::future_pmap(., aggregate_pop_to_ir),
+    scaled_pop_df = furrr::future_map2(datadir, unscaled_pop_df, ~scale_ir_pop(.x, .y))
+  ) %>% 
+  pivot_longer(
+    matches("pop_df"), 
+    values_to = "dfs") %>% 
+  pull(dfs) %>% 
+  bind_rows() %>% 
+  rename(rescaled_to_sum_to_un_pop = rescaled)
+
+# Export IR-level population data 
+out_path <- "/project/cil/gcp/population/processed/ir_population_data.csv"
+write_csv(pops, out_path)
 
 ```
 
