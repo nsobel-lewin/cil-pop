@@ -1,0 +1,37 @@
+---
+title: "Compute IR Populations"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(furrr)
+source("population_cleaning_functions.R")
+```
+
+# Processing 
+```{r processing, echo=FALSE}
+# Get full set of products and years
+products <- c("landscan")
+years <- c(2015, 2020, 2022)
+specs <- expand_grid(
+  datadir = "/project/cil/gcp/population/",
+  product = products, 
+  year = years)
+
+par_workers <- min(nrow(specs), parallelly::availableCores() - 1)
+plan(multisession, workers = par_workers)
+
+pop_dfs <- specs %>% 
+  mutate(
+    unscaled_pop_df = future_pmap(., aggregate_pop_to_ir),
+    scaled_pop_df = future_map2(
+      datadir, unscaled_pop_df, 
+      ~scale_ir_pop(.x, .y))
+  )
+
+```
+
+# Validation
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
