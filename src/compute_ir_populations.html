@@ -174,20 +174,13 @@ specs &lt;- expand_grid(
   year = years)
 
 # Compute IR-level populations
-par_workers &lt;- parallelly::availableCores()
-plan(multicore, workers = par_workers)</code></pre>
-<pre><code>## Warning in supportsMulticoreAndRStudio(...): [ONE-TIME WARNING] Forked
-## processing (&#39;multicore&#39;) is not supported when running R from RStudio because
-## it is considered unstable. For more details, how to control forked processing
-## or not, and how to silence this warning in future R sessions, see
-## ?parallelly::supportsMulticore</code></pre>
-<pre class="r"><code>pops &lt;- specs %&gt;% 
+pops &lt;- specs %&gt;% 
   mutate(
     # Sum population within each IR
-    unscaled_pop_df = furrr::future_pmap(., aggregate_pop_to_ir),
+    unscaled_pop_df = pmap(., aggregate_pop_to_ir),
     
     # Scale IR populations to correspond with UN country population totals
-    scaled_pop_df = furrr::future_map2(datadir, unscaled_pop_df, ~scale_ir_pop(.x, .y))
+    scaled_pop_df = map2(datadir, unscaled_pop_df, ~scale_ir_pop(.x, .y))
   ) %&gt;% 
   # Extract IR-level population datasets
   pivot_longer(
@@ -196,14 +189,9 @@ plan(multicore, workers = par_workers)</code></pre>
   pull(dfs) %&gt;%
   # Aggregate IR-level population datasets into a single dataset
   bind_rows() %&gt;% 
-  rename(rescaled_to_sum_to_un_pop = rescaled)</code></pre>
-<pre><code>## Warning: There were 3 warnings in `mutate()`.
-## The first warning was:
-## ℹ In argument: `unscaled_pop_df = furrr::future_pmap(., aggregate_pop_to_ir)`.
-## Caused by warning:
-## ! UNRELIABLE VALUE: Future (&#39;&lt;none&gt;&#39;) unexpectedly generated random numbers without specifying argument &#39;seed&#39;. There is a risk that those random numbers are not statistically sound and the overall results might be invalid. To fix this, specify &#39;seed=TRUE&#39;. This ensures that proper, parallel-safe random numbers are produced via the L&#39;Ecuyer-CMRG method. To disable this check, use &#39;seed=NULL&#39;, or set option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.
-## ℹ Run `dplyr::last_dplyr_warnings()` to see the 2 remaining warnings.</code></pre>
-<pre class="r"><code># Export IR-level population data 
+  rename(rescaled_to_sum_to_un_pop = rescaled)
+
+# Export IR-level population data 
 out_path &lt;- str_c(datadir, &quot;processed/ir_population_data.csv&quot;)
 write_csv(pops, out_path)</code></pre>
 </div>

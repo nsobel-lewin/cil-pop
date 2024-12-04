@@ -6,7 +6,6 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
-library(furrr)
 
 # Load relevant functions
 source("compute_ir_populations_fns.R")
@@ -28,16 +27,13 @@ specs <- expand_grid(
   year = years)
 
 # Compute IR-level populations
-par_workers <- parallelly::availableCores()
-plan(multicore, workers = par_workers)
-
 pops <- specs %>% 
   mutate(
     # Sum population within each IR
-    unscaled_pop_df = furrr::future_pmap(., aggregate_pop_to_ir),
+    unscaled_pop_df = pmap(., aggregate_pop_to_ir),
     
     # Scale IR populations to correspond with UN country population totals
-    scaled_pop_df = furrr::future_map2(datadir, unscaled_pop_df, ~scale_ir_pop(.x, .y))
+    scaled_pop_df = map2(datadir, unscaled_pop_df, ~scale_ir_pop(.x, .y))
   ) %>% 
   # Extract IR-level population datasets
   pivot_longer(

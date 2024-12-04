@@ -69,7 +69,7 @@ aggregate_pop_to_ir <- function(datadir, product, year) {
     bind_cols(
       # Product identifiers
       year = year,
-      source = product,
+      product = product,
       rescaled = F,
       
       # IR identifiers
@@ -113,6 +113,7 @@ scale_ir_pop <- function(datadir, ir_pop, skip_missing_data_check = F) {
   ir_pop %>% 
     left_join(scale_factor, by = "ISO") %>% 
     mutate(pop = pop * scale_factor, rescaled = T, .keep = "unused") %>% 
+    select(-c(ir_pop, un_pop)) %>% 
     return()
   
 }
