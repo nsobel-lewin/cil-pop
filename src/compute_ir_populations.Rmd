@@ -29,7 +29,7 @@ specs <- expand_grid(
 
 # Compute IR-level populations
 par_workers <- parallelly::availableCores()
-plan(multisession, workers = par_workers)
+plan(multicore, workers = par_workers)
 
 pops <- specs %>% 
   mutate(
