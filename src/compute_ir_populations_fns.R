@@ -1,9 +1,12 @@
 # Population loading functions ----
-
 load_population <- function(datadir, product, year) {
+  
+  # Convert year to character in case it has been supplied as an integer type
+  year <- as.character(year)
 
   # check that product is incorporated 
-  product_list <- c("landscan")
+  product_list <- str_extract(list.dirs(paste0(datadir, "data/products/"), recursive = F), "/(\\w+)$", group = 1)
+  
   if (!(product %in% product_list)) {
     no_product_error <- paste0(
       "'", product, "' is not a viable option. Choose a product in: ",
@@ -25,7 +28,7 @@ load_landscan_population <- function(datadir, year) {
   
   # check that year has been downloaded 
   landscan_years <- list.files(
-    paste0(datadir, "data/landscan/"), 
+    paste0(datadir, "data/products/landscan/"), 
     recursive = T,
     full.names = T,
     pattern = "\\d+.tif$") %>%  
@@ -39,9 +42,10 @@ load_landscan_population <- function(datadir, year) {
     stop(no_year_error)
   }
 
+  # Load raster data
   spat_rast <- terra::rast(
     str_c(
-      datadir, "data/landscan/landscan-global-", year, 
+      datadir, "data/products/landscan/landscan-global-", year, 
       "-assets/landscan-global-", year, "-lzw.tif"
     )
   )
@@ -63,10 +67,15 @@ aggregate_pop_to_ir <- function(datadir, product, year) {
   # Compute population in each polygon
   aggregated_pop <- 
     bind_cols(
-      sf::st_drop_geometry(shps),
+      # Product identifiers
       year = year,
       source = product,
       rescaled = F,
+      
+      # IR identifiers
+      sf::st_drop_geometry(shps),
+
+      # Population within each IR
       pop = 
         exactextractr::exact_extract(
           x = gridded_pops, 
@@ -80,7 +89,7 @@ aggregate_pop_to_ir <- function(datadir, product, year) {
   
 }
   
-scale_ir_pop <- function(datadir, ir_pop) {
+scale_ir_pop <- function(datadir, ir_pop, skip_missing_data_check = F) {
   
   year <- ir_pop$year[1]
   un_pop <- load_un_population(datadir, year) %>% 
@@ -92,8 +101,15 @@ scale_ir_pop <- function(datadir, ir_pop) {
     summarize(ir_pop = sum(pop), .by = ISO) %>% 
     left_join(un_pop, by = "ISO") %>% 
     # UN Pop data is missing for a few small islands, so set scale to 1
-    mutate(scale_factor = if_else(is.na(un_pop), 1, un_pop / ir_pop), .keep = "unused")
+    mutate(scale_factor = if_else(is.na(un_pop), 1, un_pop / ir_pop))
   
+  # Test that countries missing UN population data are small
+  if (!skip_missing_data_check) {
+    if (max(scale_factor$ir_pop[is.na(scale_factor$un_pop)]) > 1e6) {
+      stop("A country with more than 1m people is missing UN population data.\nTo skip this test set `skip_missing_data_check = T`")
+    }
+  }
+
   ir_pop %>% 
     left_join(scale_factor, by = "ISO") %>% 
     mutate(pop = pop * scale_factor, rescaled = T, .keep = "unused") %>% 
@@ -108,7 +124,7 @@ load_shapefile <- function(datadir) {
   shp <- sf::st_read(shp_file_path, quiet = T) %>% 
     select(gadmid, hierid, ISO)
   
-  # Fix bounding boxß
+  # Fix bounding box
   attr(sf::st_geometry(shp), "bbox") <- 
     structure(
       c(-180, -90, 180, 90),
@@ -121,7 +137,9 @@ load_shapefile <- function(datadir) {
 }
 
 load_un_population <- function(datadir, year, Variant = NULL) {
+  
   un_file_path <- str_c(datadir, "data/UN/WPP2024_TotalPopulationBySex.csv")
+  
   un <- read_csv(un_file_path, col_select = c(ISO3_code, Time, Variant, PopTotal),
                  show_col_types = F) %>% 
     rename(ISO = ISO3_code, pop = PopTotal, year = Time) %>% 
@@ -140,6 +158,7 @@ load_un_population <- function(datadir, year, Variant = NULL) {
     ". The UN population counts are likely projections. 
     Use the 'Variant' argument to choose a projection."
   )
+  
   if(any(duplicated(un$ISO))) stop(duplicated_iso_error)
   
   return(un)
