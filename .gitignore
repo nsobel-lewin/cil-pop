@@ -2,5 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
-src/compute_ir_populations_files/
+notebooks/compute_ir_populations_files/
+notebooks/validate_ir_population_files/
 .DS_Store

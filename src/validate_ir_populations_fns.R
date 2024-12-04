@@ -116,7 +116,7 @@ make_pop_diff_plot <- function(ir_pop, simplified_shp, product, year) {
       labels = c("<-25,000", "0", "25,000", ">50,000"),
       limits = c(-25e3, 50e3),
       oob = scales::squish) +
-    labs(title = str_c("Scaled pop. - unscaled pop. (", str_to_sentence(product), ", ", year, ")")) +
+    labs(title = str_c( str_to_sentence(product), ", ", year)) +
     theme_void() +
     theme(axis.title.y = element_blank(),
           legend.title = element_blank(),
@@ -151,7 +151,7 @@ make_pop_ratio_plot <- function(ir_pop, simplified_shp, product, year) {
       labels = c("<-1%", str_c(seq(0, 6, 1),"%"),  ">7"),
       limits = c(-1, 7),
       oob = scales::squish) +
-    labs(title = str_c("% Difference (", str_to_sentence(product), ", ", year, ")")) +
+    labs(title = str_c(str_to_sentence(product), ", ", year)) +
     theme_void() +
     theme(axis.title.y = element_blank(),
           legend.title = element_blank(),
