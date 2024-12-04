@@ -148,7 +148,7 @@ make_pop_ratio_plot <- function(ir_pop, simplified_shp, product, year) {
       mid = "grey90",
       high = "firebrick3",
       breaks = seq(-1, 7, 1),
-      labels = c("<-1%", str_c(seq(0, 6, 1),"%"),  ">7"),
+      labels = c("<-1%", str_c(seq(0, 6, 1),"%"),  ">7%"),
       limits = c(-1, 7),
       oob = scales::squish) +
     labs(title = str_c(str_to_sentence(product), ", ", year)) +

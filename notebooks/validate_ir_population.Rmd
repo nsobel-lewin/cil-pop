@@ -44,7 +44,7 @@ pmap(plot_specs, make_pop_ratio_density_plot)
 
 
 # Maps
-```{r create simplified shp, echo = F}
+```{r create simplified shp, echo = F, warning = F}
 simplified_shp <- load_simplified_shapefile(datadir)
 ```
 
@@ -53,24 +53,22 @@ simplified_shp <- load_simplified_shapefile(datadir)
 plot_specs %>% 
   mutate(simplified_shp = list(simplified_shp)) %>% 
   expand(rescaled = c(T,F), nesting(ir_pop, product, year, simplified_shp)) %>% 
-  pmap(make_pop_plot) %>% 
-  map(print)
+  arrange(product, year) %>% 
+  pmap(make_pop_plot)
 ```
 
 ## Difference between scaled and unscaled IR populations
 ```{r validation-pop maps diff, echo = F, warning = F, message = F, eval = T}
 plot_specs %>% 
   mutate(simplified_shp = list(simplified_shp)) %>% 
-  pmap(make_pop_diff_plot) %>% 
-  map(print)
+  pmap(make_pop_diff_plot)
 ```
 
 ## % Difference of scaled and unscaled IR populations
 ```{r validation-pop maps ratio, echo = F, warning = F, message = F, eval = T}
 plot_specs %>% 
   mutate(simplified_shp = list(simplified_shp)) %>% 
-  pmap(make_pop_ratio_plot) %>% 
-  map(print)
+  pmap(make_pop_ratio_plot)
 ```
 
 
