@@ -1,11 +1,9 @@
 # Plotting functions ----
-make_pop_diff_density_plot <- function(datadir, product, year) {
-  
-  ir_pop <- read_csv(str_c(datadir, "processed/ir_population_data.csv"),
-                     show_col_types = F) %>% 
-    filter(year == !!year & source == product) 
-  
+## Density plotting functions ----
+make_pop_diff_density_plot <- function(ir_pop, product, year) {
+
   plot_data <- ir_pop %>% 
+    filter(year == !!year & product == !!product) %>% 
     pivot_wider(values_from = pop, names_from = rescaled_to_sum_to_un_pop, 
                 names_prefix = "rescaled_") %>% 
     mutate(diff = rescaled_TRUE - rescaled_FALSE) %>% 
@@ -14,7 +12,7 @@ make_pop_diff_density_plot <- function(datadir, product, year) {
   plot <- ggplot(plot_data, aes(x = diff)) +
     geom_density() +
     scale_x_continuous(
-      "Scaled pop. - unscaled pop.",
+      "Scaled country pop. - unscaled country pop.",
       limits = c(-1e5, 1e5),
       breaks = c(-1e5, -5e4, 0, 5e4, 1e5),
       labels = c("<-100,000", "50,000", "0", "50,000", ">100,000"),
@@ -32,13 +30,10 @@ make_pop_diff_density_plot <- function(datadir, product, year) {
 }
 
 
-make_rescale_factor_density_plot <- function(datadir, product, year) {
-  
-  ir_pop <- read_csv(str_c(datadir, "processed/ir_population_data.csv"),
-                     show_col_types = F) %>% 
-    filter(year == !!year & source == product) 
+make_pop_ratio_density_plot <- function(ir_pop, product, year) {
   
   plot_data <- ir_pop %>% 
+    filter(year == !!year & product == !!product) %>% 
     pivot_wider(values_from = pop, names_from = rescaled_to_sum_to_un_pop, 
                 names_prefix = "rescaled_") %>% 
     mutate(rescale_factor = rescaled_TRUE / rescaled_FALSE) %>% 
@@ -48,7 +43,7 @@ make_rescale_factor_density_plot <- function(datadir, product, year) {
   plot <- ggplot(plot_data, aes(x = rescale_factor)) +
     geom_density() +
     scale_x_continuous(
-      "Rescale factor",
+      "UN country pop. / product country pop. ",
       breaks = seq(0.8, 1.6, 0.2),
       labels = c("<0.8", "1.0", "1.2", "1.4", ">1.6"),
       limits = c(0.8, 1.6),
@@ -62,11 +57,11 @@ make_rescale_factor_density_plot <- function(datadir, product, year) {
 }
 
 
-make_pop_plot <- function(datadir, simplified_shp, product, year, rescaled) {
+## Map plotting functions ----
+make_pop_plot <- function(ir_pop, simplified_shp, product, year, rescaled) {
 
-  ir_pop <- read_csv(str_c(datadir, "processed/ir_population_data.csv"),
-                     show_col_types = F) %>% 
-    filter(year == !!year & source == product & rescaled_to_sum_to_un_pop == rescaled) %>% 
+  ir_pop <- ir_pop %>% 
+    filter(year == !!year & product == !!product & rescaled_to_sum_to_un_pop == rescaled) %>% 
     select(gadmid, pop)
   
   plot_data <- simplified_shp %>% 
@@ -96,11 +91,10 @@ make_pop_plot <- function(datadir, simplified_shp, product, year, rescaled) {
   return(plot)
 }
 
-make_pop_diff_plot <- function(datadir, simplified_shp, product, year) {
+make_pop_diff_plot <- function(ir_pop, simplified_shp, product, year) {
   
-  ir_pop <- read_csv(str_c(datadir, "processed/ir_population_data.csv"),
-                     show_col_types = F) %>% 
-    filter(year == !!year & source == product) %>% 
+  ir_pop <- ir_pop %>% 
+    filter(year == !!year & product == !!product) %>% 
     pivot_wider(values_from = pop, names_from = rescaled_to_sum_to_un_pop, 
                 names_prefix = "rescaled_") %>% 
     mutate(diff = rescaled_TRUE - rescaled_FALSE) %>% 
@@ -132,6 +126,40 @@ make_pop_diff_plot <- function(datadir, simplified_shp, product, year) {
   return(plot)
 }
 
+make_pop_ratio_plot <- function(ir_pop, simplified_shp, product, year) {
+  
+  ir_pop <- ir_pop %>% 
+    filter(year == !!year & product == !!product) %>% 
+    pivot_wider(values_from = pop, names_from = rescaled_to_sum_to_un_pop, 
+                names_prefix = "rescaled_") %>% 
+    mutate(ratio = (rescaled_TRUE / rescaled_FALSE - 1) * 100) %>% 
+    select(gadmid, ratio)
+  
+  plot_data <- simplified_shp %>% 
+    full_join(ir_pop, by = "gadmid") %>% 
+    # Drop Antarctica
+    filter(gadmid != 2836) %>% 
+    select(-gadmid)
+  
+  plot <- ggplot(plot_data, aes(fill = ratio)) +
+    geom_sf(linewidth = 0) +
+    scale_fill_gradient2(
+      low = "dodgerblue3",
+      mid = "grey90",
+      high = "firebrick3",
+      breaks = seq(-1, 7, 1),
+      labels = c("<-1%", str_c(seq(0, 6, 1),"%"),  ">7"),
+      limits = c(-1, 7),
+      oob = scales::squish) +
+    labs(title = str_c("% Difference (", str_to_sentence(product), ", ", year, ")")) +
+    theme_void() +
+    theme(axis.title.y = element_blank(),
+          legend.title = element_blank(),
+          legend.key.width = unit(2.5, "cm"),
+          legend.position = "bottom") 
+  
+  return(plot)
+}
 
 # Helper functions ----
 load_simplified_shapefile <- function(datadir) {
