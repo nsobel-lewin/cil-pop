@@ -1,4 +1,5 @@
 # Population loading functions ----
+
 load_population <- function(datadir, product, year) {
 
   # check that product is incorporated 

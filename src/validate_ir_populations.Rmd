@@ -1,5 +1,5 @@
 ---
-title: "Compute IR Populations"
+title: "Validate IR Populations"
 output: html_document
 ---
 
@@ -7,21 +7,16 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(furrr)
-
-# Load relevant functions
 source("compute_ir_populations_fns.R")
-
-# Set data directory path
+source("validate_ir_populations_fns.R")
 datadir <- "/project/cil/gcp/population/"
-
-# Select data products and years
 products <- c("landscan")
 years <- c(2015, 2020, 2022)
 ```
 
 # Processing 
-```{r processing, eval = T}
-# Create full set of products and years
+```{r processing, eval = F}
+# Get full set of products and years
 specs <- expand_grid(
   datadir = datadir,
   product = products, 
@@ -33,18 +28,13 @@ plan(multisession, workers = par_workers)
 
 pops <- specs %>% 
   mutate(
-    # Sum population within each IR
     unscaled_pop_df = furrr::future_pmap(., aggregate_pop_to_ir),
-    
-    # Scale IR populations to correspond with UN country population totals
     scaled_pop_df = furrr::future_map2(datadir, unscaled_pop_df, ~scale_ir_pop(.x, .y))
   ) %>% 
-  # Extract IR-level population datasets
   pivot_longer(
-    matches(".*pop_df$"), 
+    matches("pop_df"), 
     values_to = "dfs") %>% 
-  pull(dfs) %>%
-  # Aggregate IR-level population datasets into a single dataset
+  pull(dfs) %>% 
   bind_rows() %>% 
   rename(rescaled_to_sum_to_un_pop = rescaled)
 
@@ -53,3 +43,34 @@ out_path <- str_c(datadir, "processed/ir_population_data.csv")
 write_csv(pops, out_path)
 
 ```
+
+# Validation
+## Density plots
+```{r validation-density plots, echo = F}
+for (product in products) {
+  for (year in years) {
+    
+    print(make_rescale_factor_density_plot(datadir, product, year))
+    
+    print(make_pop_diff_density_plot(datadir, product, year))
+    
+  }
+}
+```
+
+
+## Maps
+```{r validation-pop maps, echo = F}
+simplified_shp <- load_simplified_shapefile(datadir)
+
+for (product in products) {
+  for (year in years) {
+    for (rescaled in c(T, F)) {
+      print(make_pop_plot(datadir, simplified_shp, product, year, rescaled))
+    }
+    print(make_pop_diff_plot(datadir, simplified_shp, product, year))
+  }
+}
+```
+
+
