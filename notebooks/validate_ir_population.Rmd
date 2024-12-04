@@ -6,7 +6,8 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
-source("validate_ir_populations_fns.R")
+source("../src/validate_ir_populations_fns.R")
+source("../src/compute_ir_populations_fns.R")
 datadir <- "/project/cil/gcp/population/"
 
 ```
@@ -44,7 +45,7 @@ pmap(plot_specs, make_pop_ratio_density_plot)
 
 # Maps
 ## Levels
-```{r validation-pop maps raw, echo = F, eval = F}
+```{r validation-pop maps raw, echo = F, warning = F, message = F}
 simplified_shp <- load_simplified_shapefile(datadir)
 
 plot_specs %>% 
@@ -55,7 +56,7 @@ plot_specs %>%
 ```
 
 ## Diff
-```{r validation-pop maps diff, echo = F, eval = F}
+```{r validation-pop maps diff}
 plot_specs %>% 
   mutate(simplified_shp = list(simplified_shp)) %>% 
   pmap(make_pop_diff_plot) %>% 
@@ -63,7 +64,7 @@ plot_specs %>%
 ```
 
 ## Ratio
-```{r validation-pop maps ratio, echo = F, eval = F}
+```{r validation-pop maps ratio}
 plot_specs %>% 
   mutate(simplified_shp = list(simplified_shp)) %>% 
   pmap(make_pop_ratio_plot) %>% 
