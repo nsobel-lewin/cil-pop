@@ -3,5 +3,4 @@
 .RData
 .Ruserdata
 src/compute_ir_populations_files/
-*.html
 .DS_Store
