@@ -8,7 +8,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 
 # Load relevant functions
-source("../src/R/compute_ir_populations_fns.R")
+source("../../src/R/compute_ir_populations_fns.R")
 
 # Set data directory path
 datadir <- "/project/cil/gcp/population/"
@@ -18,7 +18,7 @@ products <- c("landscan")
 years <- c(2015, 2020, 2022)
 ```
 
-```{r processing, eval = T}
+```{r hist-ir-level processing, eval = T}
 # Create full set of products and years
 specs <- expand_grid(
   datadir = datadir,
@@ -46,5 +46,13 @@ pops <- specs %>%
 # Export IR-level population data 
 out_path <- str_c(datadir, "processed/ir_population_data.csv")
 write_csv(pops, out_path)
+
+```
+
+```{r proj-ir-level processing, eval = T}
+
+# Compute IR-level populations
+pmap(specs, create_ir_ssp_projections) %>% 
+  unlist()
 
 ```

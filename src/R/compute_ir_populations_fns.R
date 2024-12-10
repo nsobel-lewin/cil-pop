@@ -165,3 +165,76 @@ load_un_population <- function(datadir, year, Variant = NULL) {
   return(un)
 }
   
+# Projection functions ----
+create_ir_ssp_projections <- function(datadir, product, year) {
+  
+  ir_level_pop <- read_csv(str_c(datadir, "processed/ir_population_data.csv"),
+                           show_col_types = F) %>% 
+    filter(product == !!product & year == !!year & rescaled_to_sum_to_un_pop == T) %>% 
+    select(gadmid, hierid, ISO, pop)
+  
+  ssp_projections <- readxl::read_excel(str_c(datadir, "data/SSP/ssp_data.xlsx")) %>% 
+    select(Region, Scenario, matches("^20\\d+.\\d+")) %>% 
+    filter(!is.na(Region) & !is.na(Scenario)) %>% 
+    pivot_longer(
+      matches("^20\\d+.\\d+"), 
+      names_to = "year", 
+      names_transform = as.integer,
+      values_to = "pop"
+    ) %>% 
+    rename(ISO = Region, SSP = Scenario) %>% 
+    # Convert population to millions
+    mutate(
+      pop = pop * 1e6,
+      # Convert Kosovo ISO to adhere to CIL standard
+      ISO = if_else(ISO == "XKX", "KO-", ISO)) %>% 
+    # Add non-decadal years
+    bind_rows(
+      select(., c(ISO, SSP)) %>% 
+        unique() %>% 
+        expand(year = setdiff(2010:2095, seq(2010, 2095, 5)), nesting(ISO, SSP))
+    ) %>% 
+    arrange(ISO, SSP, year) %>% 
+    # Interpolate population
+    mutate(pop = approx(year, pop, year)$y, .by = c(ISO, SSP)) %>% 
+    # Compute SSP rescale factor
+    nest(.by = c(ISO, SSP)) %>% 
+    mutate(data = map(data, compute_rescale_factor, year = !!year)) %>% 
+    unnest(everything())
+
+  # TODO: NOT ALL ISOs have corresponding SSP data! 
+  # For now inner join, but need to resolve this
+  output_data <- inner_join(
+    ir_level_pop, ssp_projections, by = "ISO", relationship = "many-to-many") %>% 
+    select(-ISO) %>% 
+    mutate(pop = pop * rescale_factor, .keep = "unused") %>%
+    select(gadmid, hierid, SSP, year, pop) %>% 
+    nest(.by = c(SSP)) 
+  
+  output_paths <- output_data %>% 
+    mutate(path = map2(data, SSP, ~ save_ir_pop(.x, .y, product, year, datadir))) %>% 
+    pull(path)
+  
+  return(output_paths)
+  
+}
+
+compute_rescale_factor <- function(df, year) {
+  base_value <- df$pop[df$year == year]
+  df %>% 
+    mutate(rescale_factor = pop / base_value, .keep = "unused") %>% 
+    return()
+}
+
+save_ir_pop <- function(df, SSP, product, year, datadir) {
+  output_dir <- str_c(datadir, "processed", SSP, 
+                       product, year, "", sep = "/")
+  
+  if (!dir.exists(output_dir)) dir.create(output_dir, recursive = T)
+  
+  output_path <- str_c(output_dir, "ir_pop.csv")
+  
+  write_csv(df, output_path)
+  return(output_path)
+}
+
