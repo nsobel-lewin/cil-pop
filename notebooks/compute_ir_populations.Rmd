@@ -8,7 +8,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 
 # Load relevant functions
-source("../src/compute_ir_populations_fns.R")
+source("../src/R/compute_ir_populations_fns.R")
 
 # Set data directory path
 datadir <- "/project/cil/gcp/population/"

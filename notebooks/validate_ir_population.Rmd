@@ -6,8 +6,8 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
-source("../src/validate_ir_populations_fns.R")
-source("../src/compute_ir_populations_fns.R")
+source("../src/R/validate_ir_populations_fns.R")
+source("../src/R/compute_ir_populations_fns.R")
 datadir <- "/project/cil/gcp/population/"
 
 ```
