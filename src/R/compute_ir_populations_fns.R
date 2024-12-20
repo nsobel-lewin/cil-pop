@@ -168,43 +168,122 @@ load_un_population <- function(datadir, year, Variant = NULL) {
 # Projection functions ----
 create_ir_ssp_projections <- function(datadir, product, year) {
   
+  browser
   ir_level_pop <- read_csv(str_c(datadir, "processed/ir_population_data.csv"),
                            show_col_types = F) %>% 
     filter(product == !!product & year == !!year & rescaled_to_sum_to_un_pop == T) %>% 
     select(gadmid, hierid, ISO, pop)
   
-  ssp_projections <- readxl::read_excel(str_c(datadir, "data/SSP/ssp_data.xlsx")) %>% 
-    select(Region, Scenario, matches("^20\\d+.\\d+")) %>% 
+  ssp_projections <- readxl::read_xlsx(
+    str_c(datadir, "data/SSP/SSP_data_2023.xlsx"),
+    guess_max = 10e3) %>% 
+    select(Region, Scenario, matches("^\\d+")) %>% 
     filter(!is.na(Region) & !is.na(Scenario)) %>% 
     pivot_longer(
-      matches("^20\\d+.\\d+"), 
+      matches("^\\d+"), 
       names_to = "year", 
       names_transform = as.integer,
       values_to = "pop"
     ) %>% 
-    rename(ISO = Region, SSP = Scenario) %>% 
-    # Convert population to millions
     mutate(
-      pop = pop * 1e6,
-      # Convert Kosovo ISO to adhere to CIL standard
-      ISO = if_else(ISO == "XKX", "KO-", ISO)) %>% 
+      # Fill in years prior to 2022 with historical data 
+      pop = if_else(year < 2020, max(pop[Scenario == "Historical Reference"]), pop),
+      .by = c(Region, year)
+    ) %>% 
+    filter(str_detect(Scenario, "SSP\\d")) %>% 
+    mutate(
+      Region = case_when(
+        Region == "Micronesia" ~ "Micronesia (Federated States of)",
+        Region == "Cura?ao" ~ "Curaçao",
+        Region == "R?union" ~ "Réunion",
+        T ~ Region
+      ),
+      ISO = countrycode::countrycode(
+        Region, origin = "country.name", destination = "iso3c")
+    ) %>% 
+    rename(country = Region, SSP = Scenario) %>% 
+    select(ISO, country, SSP, year, pop) %>% 
+    # Convert population to millions
+    mutate(pop = pop * 1e6) %>% 
     # Add non-decadal years
     bind_rows(
-      select(., c(ISO, SSP)) %>% 
+      select(., c(ISO, country, SSP)) %>% 
         unique() %>% 
-        expand(year = setdiff(2010:2095, seq(2010, 2095, 5)), nesting(ISO, SSP))
+        expand(year = setdiff(2010:2100, seq(2010, 2100, 5)), nesting(ISO, country, SSP))
     ) %>% 
-    arrange(ISO, SSP, year) %>% 
+    arrange(ISO, country, SSP, year) %>% 
     # Interpolate population
-    mutate(pop = approx(year, pop, year)$y, .by = c(ISO, SSP)) %>% 
+    mutate(pop = approx(year, pop, year)$y, .by = c(ISO, country, SSP)) %>% 
     # Compute SSP rescale factor
-    nest(.by = c(ISO, SSP)) %>% 
+    nest(.by = c(ISO, country, SSP)) %>% 
     mutate(data = map(data, compute_rescale_factor, year = !!year)) %>% 
     unnest(everything())
 
   # TODO: NOT ALL ISOs have corresponding SSP data! 
   # For now inner join, but need to resolve this
-  output_data <- inner_join(
+  output_data <- ir_level_pop %>% 
+    # Some ISOs are not included in the SSP database, 
+    # compute projections based on nearby countries
+    mutate(
+      ISO = case_when(
+        ISO == "AIA" ~ "XXX", # Anguilla
+        ISO == "ALA" ~ "XXX", # Åland Islands
+        ISO == "AND" ~ "XXX", # Andorra
+        ISO == "ASM" ~ "XXX", # American Samoa
+        ISO == "ATA" ~ "XXX", # Antarctica
+        ISO == "ATF" ~ "XXX", # French Southern Territories
+        ISO == "BES" ~ "XXX", # Caribbean Netherlands
+        ISO == "BLM" ~ "XXX", # St. Barthélemy
+        ISO == "BMU" ~ "XXX", # Bermuda
+        ISO == "BVT" ~ "XXX", # Bouvet Island
+        ISO == "CA-" ~ "XXX", # Caspian Sea
+        ISO == "CCK" ~ "XXX", # Cocos (Keeling) Islands
+        ISO == "CL-" ~ "XXX", # Clipperton Island
+        ISO == "COK" ~ "XXX", # Cook Islands
+        ISO == "CXR" ~ "XXX", # Christmas Island
+        ISO == "CYM" ~ "XXX", # Cayman Islands
+        ISO == "DMA" ~ "XXX", # Dominica
+        ISO == "FLK" ~ "XXX", # Falkland Islands
+        ISO == "FRO" ~ "XXX", # Faroe Islands
+        ISO == "GGY" ~ "XXX", # Guernsey
+        ISO == "GIB" ~ "XXX", # Gibraltar
+        ISO == "GRL" ~ "XXX", # Greenland
+        ISO == "HMD" ~ "XXX", # Heard & McDonald Islands
+        ISO == "IMN" ~ "XXX", # Isle of Man
+        ISO == "IOT" ~ "XXX", # British Indian Ocean Territory
+        ISO == "JEY" ~ "XXX", # Jersey
+        ISO == "KNA" ~ "XXX", # St. Kitts & Nevis
+        ISO == "KO-" ~ "XXX", # Kosovo
+        ISO == "LIE" ~ "XXX", # Liechtenstein
+        ISO == "MAF" ~ "XXX", # Saint Martin (French part)
+        ISO == "MCO" ~ "XXX", # Monaco
+        ISO == "MHL" ~ "XXX", # Marshall Islands
+        ISO == "MNP" ~ "XXX", # Northern Mariana Islands
+        ISO == "MSR" ~ "XXX", # Montserrat
+        ISO == "NFK" ~ "XXX", # Norfolk Island
+        ISO == "NIU" ~ "XXX", # Niue
+        ISO == "NRU" ~ "XXX", # Nauru
+        ISO == "PCN" ~ "XXX", # Pitcairn Islands
+        ISO == "PLW" ~ "XXX", # Palau
+        ISO == "SGS" ~ "XXX", # South Georgia & South Sandwich Islands
+        ISO == "SHN" ~ "XXX", # St. Helena
+        ISO == "SJM" ~ "XXX", # Svalbard & Jan Mayen
+        ISO == "SMR" ~ "XXX", # San Marino
+        ISO == "SMX" ~ "XXX", # Sint Maarten
+        ISO == "SP-" ~ "XXX", # Spratly islands
+        ISO == "SPM" ~ "XXX", # St. Pierre & Miquelon
+        ISO == "TCA" ~ "XXX", # Turks & Caicos Islands
+        ISO == "TKL" ~ "XXX", # Tokelau
+        ISO == "TUV" ~ "XXX", # Tuvalu
+        ISO == "UMI" ~ "XXX", # United States Minor Outlying Islands (the)
+        ISO == "VAT" ~ "XXX", # Vatican City
+        ISO == "VGB" ~ "XXX", # British Virgin Islands
+        ISO == "WLF" ~ "XXX", # Wallis & Futuna
+      )
+    )
+    
+    
+    left_join(
     ir_level_pop, ssp_projections, by = "ISO", relationship = "many-to-many") %>% 
     select(-ISO) %>% 
     mutate(pop = pop * rescale_factor, .keep = "unused") %>%
