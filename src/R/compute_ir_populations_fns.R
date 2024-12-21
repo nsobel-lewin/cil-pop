@@ -217,7 +217,13 @@ create_ir_ssp_projections <- function(datadir, product, year) {
     # Compute SSP rescale factor
     nest(.by = c(ISO, country, SSP)) %>% 
     mutate(data = map(data, compute_rescale_factor, year = !!year)) %>% 
-    unnest(everything())
+    unnest(everything()) %>% 
+    # Create a CONSTANT country
+    bind_rows(
+      ., 
+      mutate(., country = "CONSTANT", ISO = "CONSTANT", rescale_factor = 1) %>% 
+        unique()
+    )
 
   # TODO: NOT ALL ISOs have corresponding SSP data! 
   # For now inner join, but need to resolve this
@@ -226,59 +232,59 @@ create_ir_ssp_projections <- function(datadir, product, year) {
     # compute projections based on nearby countries
     mutate(
       ISO = case_when(
-        ISO == "AIA" ~ "XXX", # Anguilla
-        ISO == "ALA" ~ "XXX", # Åland Islands
-        ISO == "AND" ~ "XXX", # Andorra
-        ISO == "ASM" ~ "XXX", # American Samoa
-        ISO == "ATA" ~ "XXX", # Antarctica
-        ISO == "ATF" ~ "XXX", # French Southern Territories
-        ISO == "BES" ~ "XXX", # Caribbean Netherlands
-        ISO == "BLM" ~ "XXX", # St. Barthélemy
-        ISO == "BMU" ~ "XXX", # Bermuda
-        ISO == "BVT" ~ "XXX", # Bouvet Island
-        ISO == "CA-" ~ "XXX", # Caspian Sea
-        ISO == "CCK" ~ "XXX", # Cocos (Keeling) Islands
-        ISO == "CL-" ~ "XXX", # Clipperton Island
-        ISO == "COK" ~ "XXX", # Cook Islands
-        ISO == "CXR" ~ "XXX", # Christmas Island
-        ISO == "CYM" ~ "XXX", # Cayman Islands
-        ISO == "DMA" ~ "XXX", # Dominica
-        ISO == "FLK" ~ "XXX", # Falkland Islands
-        ISO == "FRO" ~ "XXX", # Faroe Islands
-        ISO == "GGY" ~ "XXX", # Guernsey
-        ISO == "GIB" ~ "XXX", # Gibraltar
-        ISO == "GRL" ~ "XXX", # Greenland
-        ISO == "HMD" ~ "XXX", # Heard & McDonald Islands
-        ISO == "IMN" ~ "XXX", # Isle of Man
-        ISO == "IOT" ~ "XXX", # British Indian Ocean Territory
-        ISO == "JEY" ~ "XXX", # Jersey
-        ISO == "KNA" ~ "XXX", # St. Kitts & Nevis
-        ISO == "KO-" ~ "XXX", # Kosovo
-        ISO == "LIE" ~ "XXX", # Liechtenstein
-        ISO == "MAF" ~ "XXX", # Saint Martin (French part)
-        ISO == "MCO" ~ "XXX", # Monaco
-        ISO == "MHL" ~ "XXX", # Marshall Islands
-        ISO == "MNP" ~ "XXX", # Northern Mariana Islands
-        ISO == "MSR" ~ "XXX", # Montserrat
-        ISO == "NFK" ~ "XXX", # Norfolk Island
-        ISO == "NIU" ~ "XXX", # Niue
-        ISO == "NRU" ~ "XXX", # Nauru
-        ISO == "PCN" ~ "XXX", # Pitcairn Islands
-        ISO == "PLW" ~ "XXX", # Palau
-        ISO == "SGS" ~ "XXX", # South Georgia & South Sandwich Islands
-        ISO == "SHN" ~ "XXX", # St. Helena
-        ISO == "SJM" ~ "XXX", # Svalbard & Jan Mayen
-        ISO == "SMR" ~ "XXX", # San Marino
-        ISO == "SMX" ~ "XXX", # Sint Maarten
-        ISO == "SP-" ~ "XXX", # Spratly islands
-        ISO == "SPM" ~ "XXX", # St. Pierre & Miquelon
-        ISO == "TCA" ~ "XXX", # Turks & Caicos Islands
-        ISO == "TKL" ~ "XXX", # Tokelau
-        ISO == "TUV" ~ "XXX", # Tuvalu
-        ISO == "UMI" ~ "XXX", # United States Minor Outlying Islands (the)
-        ISO == "VAT" ~ "XXX", # Vatican City
-        ISO == "VGB" ~ "XXX", # British Virgin Islands
-        ISO == "WLF" ~ "XXX", # Wallis & Futuna
+        ISO == "AIA" ~ "ATG", # Anguilla (Use Antigua and Barbuda)
+        ISO == "ALA" ~ "FIN", # Åland Islands (Use Finland)
+        ISO == "AND" ~ "ESP", # Andorra (Use Spain)
+        ISO == "ASM" ~ "WSM", # American Samoa (Use Samoa)
+        ISO == "ATA" ~ "CONSTANT", # Antarctica (Use CONSTANT)
+        ISO == "ATF" ~ "CONSTANT", # French Southern Territories (Use CONSTANT)
+        ISO == "BES" ~ "CUW", # Caribbean Netherlands (Use Curacao)
+        ISO == "BLM" ~ "ATG", # St. Barthélemy (Use Antigua and Barbuda)
+        ISO == "BMU" ~ "VIR", # Bermuda (Use U.S. Virgin Islands)
+        ISO == "BVT" ~ "CONSTANT", # Bouvet Island (Use CONSTANT)
+        ISO == "CA-" ~ "CONSTANT", # Caspian Sea (Use CONSTANT)
+        ISO == "CCK" ~ "AUS", # Cocos (Keeling) Islands (Use Australia)
+        ISO == "CL-" ~ "CONSTANT", # Clipperton Island (Use CONSTANT)
+        ISO == "COK" ~ "PYF", # Cook Islands (Use French Polynesia)
+        ISO == "CXR" ~ "AUS", # Christmas Island (Use Australia)
+        ISO == "CYM" ~ "CUB", # Cayman Islands (Use Cuba)
+        ISO == "DMA" ~ "MTQ", # Dominica (Use Martinique)
+        ISO == "FLK" ~ "GBR", # Falkland Islands (Use Britain)
+        ISO == "FRO" ~ "DNK", # Faroe Islands (Use Denmark)
+        ISO == "GGY" ~ "GBR", # Guernsey (Use Britain)
+        ISO == "GIB" ~ "ESP", # Gibraltar (Use Spain)
+        ISO == "GRL" ~ "DNK", # Greenland (Use Denmark)
+        ISO == "HMD" ~ "CONSTANT", # Heard & McDonald Islands (Use CONSTANT)
+        ISO == "IMN" ~ "GBR", # Isle of Man (Use Britain)
+        ISO == "IOT" ~ "CONSTANT", # British Indian Ocean Territory (Use CONSTANT)
+        ISO == "JEY" ~ "GBR", # Jersey (Use Britain)
+        ISO == "KNA" ~ "ATG", # St. Kitts & Nevis (Use Antigua and Barbuda)
+        ISO == "KO-" ~ "CONSTANT", # Kosovo (Use CONSTANT)
+        ISO == "LIE" ~ "CHE", # Liechtenstein (Use Switzerland)
+        ISO == "MAF" ~ "ATG", # Saint Martin (French part) (Use Antigua and Barbuda)
+        ISO == "MCO" ~ "FRA", # Monaco (Use France)
+        ISO == "MHL" ~ "CONSTANT", # Marshall Islands (Use CONSTANT)
+        ISO == "MNP" ~ "GUM", # Northern Mariana Islands (Use Guam)
+        ISO == "MSR" ~ "ATG", # Montserrat (Use Antigua and Barbuda)
+        ISO == "NFK" ~ "AUS", # Norfolk Island (Use Australia)
+        ISO == "NIU" ~ "WSM", # Niue (Use Samoa)
+        ISO == "NRU" ~ "CONSTANT", # Nauru (Use CONSTANT)
+        ISO == "PCN" ~ "CONSTANT", # Pitcairn Islands (Use CONSTANT)
+        ISO == "PLW" ~ "CONSTANT", # Palau (Use CONSTANT)
+        ISO == "SGS" ~ "CONSTANT", # South Georgia & South Sandwich Islands (Use CONSTANT)
+        ISO == "SHN" ~ "CONSTANT", # St. Helena (Use CONSTANT)
+        ISO == "SJM" ~ "NOR", # Svalbard & Jan Mayen (Use Norway)
+        ISO == "SMR" ~ "ITA", # San Marino (Use Italy)
+        ISO == "SMX" ~ "ATG", # Sint Maarten (Use Antigua and Barbuda)
+        ISO == "SP-" ~ "CONSTANT", # Spratly islands (Use CONSTANT)
+        ISO == "SPM" ~ "CAN", # St. Pierre & Miquelon (Use Canada)
+        ISO == "TCA" ~ "BHS", # Turks & Caicos Islands (Use Bahamas)
+        ISO == "TKL" ~ "WSM", # Tokelau (Use Samoa)
+        ISO == "TUV" ~ "WSM", # Tuvalu (Use Samoa)
+        ISO == "UMI" ~ "CONSTANT", # United States Minor Outlying Islands (the) (Use CONSTANT)
+        ISO == "VAT" ~ "ITA", # Vatican City (Use Italy)
+        ISO == "VGB" ~ "VIR", # British Virgin Islands (Use US Virgin islands)
+        ISO == "WLF" ~ "WSM", # Wallis & Futuna (Use Samoa)
       )
     )
     
