@@ -167,8 +167,7 @@ load_un_population <- function(datadir, year, Variant = NULL) {
   
 # Projection functions ----
 create_ir_ssp_projections <- function(datadir, product, year) {
-  
-  browser
+
   ir_level_pop <- read_csv(str_c(datadir, "processed/ir_population_data.csv"),
                            show_col_types = F) %>% 
     filter(product == !!product & year == !!year & rescaled_to_sum_to_un_pop == T) %>% 
@@ -225,8 +224,6 @@ create_ir_ssp_projections <- function(datadir, product, year) {
         unique()
     )
 
-  # TODO: NOT ALL ISOs have corresponding SSP data! 
-  # For now inner join, but need to resolve this
   output_data <- ir_level_pop %>% 
     # Some ISOs are not included in the SSP database, 
     # compute projections based on nearby countries
@@ -284,13 +281,11 @@ create_ir_ssp_projections <- function(datadir, product, year) {
         ISO == "UMI" ~ "CONSTANT", # United States Minor Outlying Islands (the) (Use CONSTANT)
         ISO == "VAT" ~ "ITA", # Vatican City (Use Italy)
         ISO == "VGB" ~ "VIR", # British Virgin Islands (Use US Virgin islands)
-        ISO == "WLF" ~ "WSM", # Wallis & Futuna (Use Samoa)
+        ISO == "WLF" ~ "WSM", # Wallis & Futuna (Use Samoa),
+        T ~ ISO
       )
-    )
-    
-    
-    left_join(
-    ir_level_pop, ssp_projections, by = "ISO", relationship = "many-to-many") %>% 
+    ) %>% 
+    left_join(ssp_projections, by = "ISO", relationship = "many-to-many") %>% 
     select(-ISO) %>% 
     mutate(pop = pop * rescale_factor, .keep = "unused") %>%
     select(gadmid, hierid, SSP, year, pop) %>% 
