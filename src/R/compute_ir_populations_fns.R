@@ -307,7 +307,7 @@ compute_rescale_factor <- function(df, year) {
 }
 
 save_ir_pop <- function(df, SSP, product, year, datadir) {
-  output_dir <- str_c(datadir, "processed", SSP, 
+  output_dir <- str_c(str_c(datadir, "processed"), SSP, 
                        product, year, "", sep = "/")
   
   if (!dir.exists(output_dir)) dir.create(output_dir, recursive = T)

@@ -192,6 +192,24 @@ pops &lt;- specs %&gt;%
 # Export IR-level population data 
 out_path &lt;- str_c(datadir, &quot;processed/ir_population_data.csv&quot;)
 write_csv(pops, out_path)</code></pre>
+<pre class="r"><code># Compute IR-level populations
+pmap(specs, create_ir_ssp_projections) %&gt;% 
+  unlist()</code></pre>
+<pre><code>##  [1] &quot;/project/cil/gcp/population/processed/SSP1/landscan/2015/ir_pop.csv&quot;
+##  [2] &quot;/project/cil/gcp/population/processed/SSP2/landscan/2015/ir_pop.csv&quot;
+##  [3] &quot;/project/cil/gcp/population/processed/SSP3/landscan/2015/ir_pop.csv&quot;
+##  [4] &quot;/project/cil/gcp/population/processed/SSP4/landscan/2015/ir_pop.csv&quot;
+##  [5] &quot;/project/cil/gcp/population/processed/SSP5/landscan/2015/ir_pop.csv&quot;
+##  [6] &quot;/project/cil/gcp/population/processed/SSP1/landscan/2020/ir_pop.csv&quot;
+##  [7] &quot;/project/cil/gcp/population/processed/SSP2/landscan/2020/ir_pop.csv&quot;
+##  [8] &quot;/project/cil/gcp/population/processed/SSP3/landscan/2020/ir_pop.csv&quot;
+##  [9] &quot;/project/cil/gcp/population/processed/SSP4/landscan/2020/ir_pop.csv&quot;
+## [10] &quot;/project/cil/gcp/population/processed/SSP5/landscan/2020/ir_pop.csv&quot;
+## [11] &quot;/project/cil/gcp/population/processed/SSP1/landscan/2022/ir_pop.csv&quot;
+## [12] &quot;/project/cil/gcp/population/processed/SSP2/landscan/2022/ir_pop.csv&quot;
+## [13] &quot;/project/cil/gcp/population/processed/SSP3/landscan/2022/ir_pop.csv&quot;
+## [14] &quot;/project/cil/gcp/population/processed/SSP4/landscan/2022/ir_pop.csv&quot;
+## [15] &quot;/project/cil/gcp/population/processed/SSP5/landscan/2022/ir_pop.csv&quot;</code></pre>
 
 
 
