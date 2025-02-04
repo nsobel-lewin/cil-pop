@@ -14,7 +14,11 @@ datadir <- "/project/cil/gcp/population/"
 
 # Product year selection 
 ```{r product-year selection}
-ir_pop <- read_csv(str_c(datadir, "processed/ir_population_data.csv"), show_col_types = F) 
+ir_pop <- list.files(
+  file.path(datadir, "processed"), pattern = "ir_pop.csv", recursive = T, full.names = T) %>% 
+  map(read_csv, show_col_types = F) %>% 
+  bind_rows() %>% 
+  rename(rescaled_to_sum_to_un_pop = rescaled)
 
 selected_products <- NULL
 selected_years <- NULL
