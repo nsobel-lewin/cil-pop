@@ -4,4 +4,5 @@
 .Ruserdata
 notebooks/compute_ir_populations_files/
 notebooks/validate_ir_population_files/
+src/Python/.ipynb_checkpoints/
 .DS_Store
