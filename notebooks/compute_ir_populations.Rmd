@@ -38,21 +38,21 @@ pops <- specs %>%
   pivot_longer(
     matches(".*pop_df$"), 
     values_to = "dfs") %>% 
-  pull(dfs) %>%
-  # Aggregate IR-level population datasets into a single dataset
-  bind_rows() %>% 
-  rename(rescaled_to_sum_to_un_pop = rescaled)
+  mutate(export_path = 
+           str_c(datadir, file.path("processed", product, year, str_extract(name, "[a-z]+"))),
+         .keep = "unused")
+
+# Make export directories
+if (!all(sapply(pops$export_path, dir.exists))) {
+  pops %>% 
+    filter(!dir.exists(export_path)) %>% 
+    pull(export_path) %>% 
+    map(~dir.create(.x, recursive = T))
+}
 
 # Export IR-level population data 
-out_path <- str_c(datadir, "processed/ir_population_data.csv")
-write_csv(pops, out_path)
-
-```
-
-```{r proj-ir-level processing, eval = T}
-
-# Compute IR-level populations
-pmap(specs, create_ir_ssp_projections) %>% 
-  unlist()
-
+pops %>% 
+  mutate(export_path = file.path(export_path, "ir_pop.csv")) %>% 
+  mutate(return = map2(dfs, export_path, ~write_csv(.x, .y)))
+ 
 ```
