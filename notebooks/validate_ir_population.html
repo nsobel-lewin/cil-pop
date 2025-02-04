@@ -167,7 +167,11 @@ pre code {
 
 <div id="product-year-selection" class="section level1">
 <h1>Product year selection</h1>
-<pre class="r"><code>ir_pop &lt;- read_csv(str_c(datadir, &quot;processed/ir_population_data.csv&quot;), show_col_types = F) 
+<pre class="r"><code>ir_pop &lt;- list.files(
+  file.path(datadir, &quot;processed&quot;), pattern = &quot;ir_pop.csv&quot;, recursive = T, full.names = T) %&gt;% 
+  map(read_csv, show_col_types = F) %&gt;% 
+  bind_rows() %&gt;% 
+  rename(rescaled_to_sum_to_un_pop = rescaled)
 
 selected_products &lt;- NULL
 selected_years &lt;- NULL

@@ -184,32 +184,31 @@ pops &lt;- specs %&gt;%
   pivot_longer(
     matches(&quot;.*pop_df$&quot;), 
     values_to = &quot;dfs&quot;) %&gt;% 
-  pull(dfs) %&gt;%
-  # Aggregate IR-level population datasets into a single dataset
-  bind_rows() %&gt;% 
-  rename(rescaled_to_sum_to_un_pop = rescaled)
+  mutate(export_path = 
+           str_c(datadir, file.path(&quot;processed&quot;, product, year, str_extract(name, &quot;[a-z]+&quot;))),
+         .keep = &quot;unused&quot;)
+
+# Make export directories
+if (!all(sapply(pops$export_path, dir.exists))) {
+  pops %&gt;% 
+    filter(!dir.exists(export_path)) %&gt;% 
+    pull(export_path) %&gt;% 
+    map(~dir.create(.x, recursive = T))
+}
 
 # Export IR-level population data 
-out_path &lt;- str_c(datadir, &quot;processed/ir_population_data.csv&quot;)
-write_csv(pops, out_path)</code></pre>
-<pre class="r"><code># Compute IR-level populations
-pmap(specs, create_ir_ssp_projections) %&gt;% 
-  unlist()</code></pre>
-<pre><code>##  [1] &quot;/project/cil/gcp/population/processed/SSP1/landscan/2015/ir_pop.csv&quot;
-##  [2] &quot;/project/cil/gcp/population/processed/SSP2/landscan/2015/ir_pop.csv&quot;
-##  [3] &quot;/project/cil/gcp/population/processed/SSP3/landscan/2015/ir_pop.csv&quot;
-##  [4] &quot;/project/cil/gcp/population/processed/SSP4/landscan/2015/ir_pop.csv&quot;
-##  [5] &quot;/project/cil/gcp/population/processed/SSP5/landscan/2015/ir_pop.csv&quot;
-##  [6] &quot;/project/cil/gcp/population/processed/SSP1/landscan/2020/ir_pop.csv&quot;
-##  [7] &quot;/project/cil/gcp/population/processed/SSP2/landscan/2020/ir_pop.csv&quot;
-##  [8] &quot;/project/cil/gcp/population/processed/SSP3/landscan/2020/ir_pop.csv&quot;
-##  [9] &quot;/project/cil/gcp/population/processed/SSP4/landscan/2020/ir_pop.csv&quot;
-## [10] &quot;/project/cil/gcp/population/processed/SSP5/landscan/2020/ir_pop.csv&quot;
-## [11] &quot;/project/cil/gcp/population/processed/SSP1/landscan/2022/ir_pop.csv&quot;
-## [12] &quot;/project/cil/gcp/population/processed/SSP2/landscan/2022/ir_pop.csv&quot;
-## [13] &quot;/project/cil/gcp/population/processed/SSP3/landscan/2022/ir_pop.csv&quot;
-## [14] &quot;/project/cil/gcp/population/processed/SSP4/landscan/2022/ir_pop.csv&quot;
-## [15] &quot;/project/cil/gcp/population/processed/SSP5/landscan/2022/ir_pop.csv&quot;</code></pre>
+pops %&gt;% 
+  mutate(export_path = file.path(export_path, &quot;ir_pop.csv&quot;)) %&gt;% 
+  mutate(return = map2(dfs, export_path, ~write_csv(.x, .y)))</code></pre>
+<pre><code>## # A tibble: 6 × 3
+##   dfs               export_path                                           return
+##   &lt;list&gt;            &lt;chr&gt;                                                 &lt;list&gt;
+## 1 &lt;df [24,378 × 7]&gt; /project/cil/gcp/population/processed/landscan/2015/… &lt;df&gt;  
+## 2 &lt;df [24,378 × 7]&gt; /project/cil/gcp/population/processed/landscan/2015/… &lt;df&gt;  
+## 3 &lt;df [24,378 × 7]&gt; /project/cil/gcp/population/processed/landscan/2020/… &lt;df&gt;  
+## 4 &lt;df [24,378 × 7]&gt; /project/cil/gcp/population/processed/landscan/2020/… &lt;df&gt;  
+## 5 &lt;df [24,378 × 7]&gt; /project/cil/gcp/population/processed/landscan/2022/… &lt;df&gt;  
+## 6 &lt;df [24,378 × 7]&gt; /project/cil/gcp/population/processed/landscan/2022/… &lt;df&gt;</code></pre>
 
 
 
