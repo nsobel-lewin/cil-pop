@@ -38,6 +38,7 @@ pops <- specs %>%
   pivot_longer(
     matches(".*pop_df$"), 
     values_to = "dfs") %>% 
+  mutate(dfs = map(dfs, ~rename(.x, iso = ISO))) %>%
   mutate(export_path = 
            str_c(datadir, file.path("processed", product, year, str_extract(name, "[a-z]+"))),
          .keep = "unused")
@@ -55,4 +56,10 @@ pops %>%
   mutate(export_path = file.path(export_path, "ir_pop.csv")) %>% 
   mutate(return = map2(dfs, export_path, ~write_csv(.x, .y)))
  
+```
+
+
+```{r ssp processing, eval = T}
+# Perform light cleaning on SSP data
+clean_ssp_data(datadir)
 ```

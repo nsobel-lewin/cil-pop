@@ -164,3 +164,46 @@ load_un_population <- function(datadir, year, Variant = NULL) {
   
   return(un)
 }
+
+
+# Cleanup SSP data ----
+clean_ssp_data <- function(datadir, ssp_filename = "20250204_ssp_basic_drivers_release_3.1_full.xlsx") {
+  
+  library(readxl)
+  library(countrycode)
+  
+  export_path <- str_c(datadir, file.path("SSP", "cleaned_SSP_data.csv"))
+  
+  readxl::read_excel(file.path(datadir, "data/SSP", ssp_filename), 
+                                 sheet = 2, col_types = "text") %>% 
+    rename_with(tolower) %>% 
+    filter(
+      variable == "Population", 
+      # Remove regions 
+      !str_detect(region, "\\(R\\d+\\)") & !(region %in% c("Micronesia", "World")),
+      # Select SSP scenarios
+      str_detect(scenario, "SSP\\d{1}")
+      ) %>% 
+    mutate(iso = countrycode(sourcevar = region, origin = "country.name", destination = "iso3c"),
+           .before = everything()) %>%
+    select(iso, scenario, matches("\\d{4}")) %>% 
+    pivot_longer(
+      matches("\\d{4}"),
+      names_to = "year",
+      values_to = "population",
+      names_transform = as.integer, 
+      values_transform = as.numeric
+    ) %>% 
+    filter(year >= 2020) %>% 
+    # Add years between 2020 and 2100 that are not multiples of 5
+    complete(year = 2020:2100, nesting(iso, scenario)) %>% 
+    # Linearly interpolate population
+    arrange(scenario, iso, year) %>% 
+    mutate(population = approx(year, population, year)$y, .by = c(scenario, iso)) %>% 
+    rename(ssp = scenario) %>% 
+    write_csv(export_path)
+  
+  return(export_path)
+  
+}
+
