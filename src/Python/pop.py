@@ -2,12 +2,11 @@ from warnings import warn
 import numpy as np
 import pandas as pd
 import os
-import metacsv
 from impactlab_tools.utils import files
 from . import provider
 
 
-def read_hierarchicalpopprovider(ssp, projection_path="/project/cil/gcp/population/processed/", downscaling_product="landscan", downscaling_year=2022, frequency=5, startyear=2010, stopyear=2100):
+def read_hierarchicalpopprovider(ssp, projection_path="/project/cil/gcp/population/processed/", downscaling_product="landscan", downscaling_year=2022, frequency=5, startyear=2025, stopyear=2100):
     """
     Read files on disk to create a PopulationProvider instance
 
@@ -21,7 +20,6 @@ def read_hierarchicalpopprovider(ssp, projection_path="/project/cil/gcp/populati
         Product used for downscaling SSP projections. 
         Must be a subfolder of `projection_path`/
         Defaults to landscan. 
-        "SSP2/landscan/2020/ir_pop.csv"
     downscaling_year : int, optional
         Year of product used for downscaling SSP projections. 
         Must be a subfolder of `projection_path`/`downscaling_product`/
@@ -59,60 +57,52 @@ def read_hierarchicalpopprovider(ssp, projection_path="/project/cil/gcp/populati
     HierarchicalPopulationProvider : Provider of population timeseries
     """
     
-    data_path = os.path.join(projection_path, ssp, downscaling_product, downscaling_year, "ir_pop.csv")
-    df = metacsv.read_csv(data_path)
+    ir_pop_path = os.path.join(projection_path, downscaling_product, str(downscaling_year), "scaled/ir_pop.csv")
+    ssp_path = os.path.join(projection_path, "SSP/cleaned_SSP_data.csv")
+
+    df_ir_pop = pd.read_csv(ir_pops_path)
+    df_ssp = pd.read_csv(ssp_path)
     
     return HierarchicalPopulationProvider(
-        iam='low',
         ssp=ssp,
-        df_baseline=df,
-        df_growth=df_growth,
-        df_nightlights=df_nightlights,
+        df_ir_pops=df_ir_pops,
+        df_ssp=df_ssp,
         startyear=startyear,
         stopyear=stopyear
     )
 
 class HierarchicalPopulationProvider(provider.BySpaceProvider):
     """
-    Provider of GDP per capita (GDPpc) timeseries, selecting "best" available source
+    Provider of population timeseries, selecting "best" available source
 
-    The provider selects the "best" data by using the highest priority data
-    available: first data from the IAM, then from any IAM, then global.
-
-    This is most commonly instantiated through ''read_hierarchicalgdppcprovider()''.
+    This is most commonly instantiated through ''read_hierarchicalpopprovider()''.
 
     Parameters
     ----------
-    iam : str
-        Target IAM model, e.g. "high" or "low".
     ssp : str
         Target SSP scenario, e.g. "SSP3".
-    df_baseline : pd.Dataframe
-        Annual GDPpc baseline observations. Must have columns giving "year",
-        IAM model ("model"), SSP scenario ("scenario"), the ISO entity ("iso"),
-        and corresponding the actual GDPpc value ("value").
-    df_growth : pd.Dataframe
-        Projected GDPpc differences at 5-year intervals. Must have the same
-        columns as `df_baseline` ("year", "model", "scenario", "iso") but
-        with a "growth" column of projected changes in GDPpc.
-    df_nightlights : pd.Dataframe
+    df_ir_pops : pd.Dataframe
+        IR-level population. Must have columns ("gadmid", "hierid", "ISO", "year", "pop")
+    df_ssp : pd.Dataframe
+        ISO-level SSP projections. Must have columns ("ISO", "year", "ssp", "population")
     startyear : int, optional
-        Year to draw baseline value from. Must be in 'df_baseline's "year" column.
+        Year to draw baseline value from. Must be greater than the minima of the "year" columns in 
+        df_ir_pops and df_ssp
     stopyear : int, optional
-        Must be within 5 years of the largest "year"  in 'df_growth'.
+        Must be less than the maximal value in df_ssp's "year" column
 
     See Also
     --------
-    read_hierarchicalgdppcprovider : Read files on disk to create a HierarchicalGDPpcProvider instance.
+    read_hierarchicalpopprovider : Read files on disk to create a HierarchicalPopulationProvider instance.
     """
     
-    def __init__(self, iam, ssp, df_baseline, df_growth, df_nightlights, startyear=2010, stopyear=2100):
-        """iam and ssp should be as described in the files (e.g., iam = 'low', ssp = 'SSP3')"""
-        super().__init__(iam, ssp, startyear)
+    def __init__(self, ssp, df_ir_pops, df_ssp, startyear=2020, stopyear=2100):
+        """ssp should be as described in the files (e.g., ssp = 'SSP3')"""
+        super().__init__(ssp, startyear)
         self.stopyear = stopyear
+        self.ir_pop_year = df_ir_pops.loc[1, "year"]
 
-        self.df_baseline_this = df_baseline.loc[(df_baseline.model == iam) & (df_baseline.scenario == ssp) & (df_baseline.year == startyear)]
-        self.df_baseline_anyiam = df_baseline.loc[(df_baseline.scenario == ssp) & (df_baseline.year == startyear)].groupby('iso').median()
+        self.df_ir_pops = df_ir_pops 
         self.baseline_global = df_baseline.loc[(df_baseline.scenario == ssp) & (df_baseline.year == startyear)].select_dtypes("number").median()
 
         # Load the growth rates, and split by priority of data
