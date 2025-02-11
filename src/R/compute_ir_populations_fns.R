@@ -172,7 +172,7 @@ clean_ssp_data <- function(datadir, ssp_filename = "20250204_ssp_basic_drivers_r
   library(readxl)
   library(countrycode)
   
-  export_path <- str_c(datadir, file.path("SSP", "cleaned_SSP_data.csv"))
+  export_path <- str_c(datadir, file.path("processed/SSP", "cleaned_SSP_data.csv"))
   
   readxl::read_excel(file.path(datadir, "data/SSP", ssp_filename), 
                                  sheet = 2, col_types = "text") %>% 
@@ -200,7 +200,7 @@ clean_ssp_data <- function(datadir, ssp_filename = "20250204_ssp_basic_drivers_r
     # Linearly interpolate population
     arrange(scenario, iso, year) %>% 
     mutate(population = approx(year, population, year)$y, .by = c(scenario, iso)) %>% 
-    rename(ssp = scenario) %>% 
+    rename(ssp = scenario, ISO = iso) %>% 
     write_csv(export_path)
   
   return(export_path)
