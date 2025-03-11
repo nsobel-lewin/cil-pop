@@ -2,9 +2,8 @@ from warnings import warn
 import numpy as np
 import pandas as pd
 import os
-from impactlab_tools.utils import files
-from . import provider
-
+import provider
+from IPython.core.debugger import set_trace
 
 def read_hierarchicalpopprovider(ssp, projection_path="/project/cil/gcp/population/processed/", downscaling_product="landscan", downscaling_year=2022, frequency=5, startyear=2025, stopyear=2100):
     """
@@ -60,7 +59,7 @@ def read_hierarchicalpopprovider(ssp, projection_path="/project/cil/gcp/populati
     ir_pop_path = os.path.join(projection_path, downscaling_product, str(downscaling_year), "scaled/ir_pop.csv")
     ssp_path = os.path.join(projection_path, "SSP/cleaned_SSP_data.csv")
 
-    df_ir_pop = pd.read_csv(ir_pops_path)
+    df_ir_pops = pd.read_csv(ir_pop_path)
     df_ssp = pd.read_csv(ssp_path)
     
     return HierarchicalPopulationProvider(
@@ -96,93 +95,68 @@ class HierarchicalPopulationProvider(provider.BySpaceProvider):
     read_hierarchicalpopprovider : Read files on disk to create a HierarchicalPopulationProvider instance.
     """
     
-    def __init__(self, ssp, df_ir_pops, df_ssp, startyear=2020, stopyear=2100):
+    def __init__(self, ssp, df_ir_pops, df_ssp, startyear=2020, stopyear=2100, iam = np.nan):
         """ssp should be as described in the files (e.g., ssp = 'SSP3')"""
-        super().__init__(iam=np.nan, ssp, startyear)
+        super().__init__(iam, ssp, startyear)
         
         self.stopyear = stopyear
         self.ir_pop_year = df_ir_pops.loc[1, "year"]
-        self.df_ir_pops_this = df_ir_pops
+        self.df_ir_pops_this = df_ir_pops[['hierid', 'pop']].rename(columns = {'hierid' : 'geo_key'})
         
         # Compute growth factor
-        df_ssp = df_ssp[df_ssp['ssp'] == ssp]
-        base_pop = df_ssp[df_ssp['year'] == startyear].set_index('ISO')['population'].to_dict()
-        df_growth['population_growth_factor'] = df_ssp.apply(lambda row: row['population'] / base_pop.get(row['ISO'], row['population']), axis=1)
-        df_growth = df_growth[['year', 'ISO', 'population_growth_factor
+        df_ssp = df_ssp.loc[df_ssp['ssp'] == ssp]
+        base_pop = df_ssp.loc[df_ssp['year'] == startyear].set_index('ISO')['population'].to_dict()
+        df_ssp = df_ssp.copy() 
+        df_ssp.loc[:, 'population_growth_factor'] = df_ssp.apply(lambda row: row['population'] / base_pop.get(row['ISO'], row['population']), axis=1)
+        df_growth = df_ssp.loc[:, ['year', 'ISO', 'population_growth_factor']].rename(columns = {'ISO' : 'geo_key'})
 
         # Store growth rates, if missing default to constant
         self.df_growth_this = df_growth
-        self.df_growth_default = pd.DataFrame({'year': range(startyear, stopyear)}, population_growth_factor = 1)
+        self.df_growth_default = pd.DataFrame({'year': range(startyear, stopyear), 'population_growth_factor': 1})
 
-    def get_best_iso_available(self, iso, df_this, df_default):
-        """Attempt to get growth factor, if missing use default constant"""
-        df = df_this.loc[df_this.iso == iso]
+    def _get_best_key_available(self, geo_key, df_this, df_default):
+        """Attempt to get value, if missing use default"""
+        df = df_this.loc[df_this.geo_key == geo_key]
         if df.shape[0] > 0:
             return df
                                
         return df_default
 
     def get_timeseries(self, hierid):
-        """Return an np.array of GDPpc for the given region."""
+        """Return an np.array of population for the given region."""
         
-        iso_pop = self.get_iso_timeseries(hierid[:3])
-        ratio = self.df_nightlights.loc[self.df_nightlights.hierid == hierid].gdppc_ratio
-        if len(ratio) == 0:
-            return iso_gdppcs # Assume all combined
-        if np.isnan(ratio.values[0]) or ratio.values[0] == 0:
-            return 0.8 * iso_gdppcs
+        iso = hierid[:3]
         
-        return iso_gdppcs * ratio.values[0]
-
-    @lru_cache(maxsize=None)
-    def get_iso_timeseries(self, iso):
-        set_trace() 
-        """Return an np.array of GDPpc for the given ISO country."""
         # Select baseline pop
-        df_baseline = self._get_best_iso_available(
-            iso,
-            self.df_ir_pops,
-            pd.DataFrame({'ISO': [iso], 'pop': [np.nan]})
-        )
-                               
-        baseline = df_baseline.value
-        if isinstance(baseline, pd.Series):
-            baseline = baseline.values[0]
+        df_pop_baseline = self._get_best_key_available(
+            hierid,
+            self.df_ir_pops_this,
+            pd.DataFrame({'geo_key': [hierid], 'pop': [np.nan]})
+        ).reset_index()
 
-        # Select growth series
-        df_growth = self._get_best_iso_available(
+        pop_baseline = df_pop_baseline.loc[0, 'pop']
+         
+        # Select growth series from ISO
+        df_growth = self._get_best_key_available(
             iso,
             self.df_growth_this,
             self.df_growth_default
         )
-
-        # Calculate pop as they grow in time
-        pop = [baseline]
-        for year in range(self.startyear + 1, self.stopyear + 1):
-            yearindex = int((year - 1 - self.startyear) / 5) # Last year's growth
-            growthrate = df_growth.loc[df_growth.yearindex == yearindex].growth.values
-            new_gdppc = gdppcs[-1] * growthrate
-            gdppcs.append(new_gdppc.item())
-
-        return np.array(gdppcs)
-
+         
+        df_ts = df_growth.loc[:, ['year']].copy()
+        df_ts.loc[:,'pop'] = pop_baseline * df_growth.loc[:, 'population_growth_factor']
+        return df_ts
 
 if __name__ == '__main__':
     # Test the provider
     import time
 
     time0 = time.time()
-    provider = GDPpcProvider('low', 'SSP3')
-    df_baseline = metacsv.read_csv(files.sharedpath("regions/hierarchy_metacsv.csv"))
-    time1 = time.time()s
+    provider = read_hierarchicalpopprovider('SSP3')
+    df_baseline = pd.read_csv("/project/cil/gcp/population/processed/landscan/2022/scaled/ir_pop.csv", usecols = ['hierid'])
+    time1 = time.time()
     print("Load time: %s seconds" % (time1 - time0))
-
-    for ii in np.where(df_baseline.is_terminal)[0]:
-        xx = provider.get_timeseries(df_baseline.iloc[ii, 0])
+    for ii in df_baseline.hierid:
+        xx = provider.get_timeseries(ii)
     time2 = time.time()
     print("First pass: %s seconds" % (time2 - time1))
-
-    for ii in np.where(df_baseline.is_terminal)[0]:
-        xx = provider.get_timeseries(df_baseline.iloc[ii, 0])
-    time3 = time.time()
-    print("Second pass: %s seconds" % (time3 - time2))
