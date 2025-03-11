@@ -98,38 +98,34 @@ class HierarchicalPopulationProvider(provider.BySpaceProvider):
     
     def __init__(self, ssp, df_ir_pops, df_ssp, startyear=2020, stopyear=2100):
         """ssp should be as described in the files (e.g., ssp = 'SSP3')"""
-        super().__init__(ssp, startyear)
+        super().__init__(iam=np.nan, ssp, startyear)
+        
         self.stopyear = stopyear
         self.ir_pop_year = df_ir_pops.loc[1, "year"]
+        self.df_ir_pops_this = df_ir_pops
+        
+        # Compute growth factor
+        df_ssp = df_ssp[df_ssp['ssp'] == ssp]
+        base_pop = df_ssp[df_ssp['year'] == startyear].set_index('ISO')['population'].to_dict()
+        df_growth['population_growth_factor'] = df_ssp.apply(lambda row: row['population'] / base_pop.get(row['ISO'], row['population']), axis=1)
+        df_growth = df_growth[['year', 'ISO', 'population_growth_factor
 
-        self.df_ir_pops = df_ir_pops 
-        self.baseline_global = df_baseline.loc[(df_baseline.scenario == ssp) & (df_baseline.year == startyear)].select_dtypes("number").median()
+        # Store growth rates, if missing default to constant
+        self.df_growth_this = df_growth
+        self.df_growth_default = pd.DataFrame({'year': range(startyear, stopyear)}, population_growth_factor = 1)
 
-        # Load the growth rates, and split by priority of data
-        df_growth['yearindex'] = np.int_((df_growth.year - startyear) / 5)
-        self.df_growth_this = df_growth.loc[(df_growth.model == iam) & (df_growth.scenario == ssp)]
-        self.df_growth_anyiam = df_growth.loc[(df_growth.scenario == ssp)].groupby(['iso', 'year']).median()
-        self.growth_global = df_growth.loc[(df_growth.scenario == ssp) & (df_growth.model == iam)].groupby(['year']).median()
-
-        self.df_nightlights = df_nightlights
-
-    def _get_best_iso_available(self, iso, df_this, df_anyiam, df_global):
-        """Get the highest priority data available: first data from the IAM, then from any IAM, then global."""
+    def get_best_iso_available(self, iso, df_this, df_default):
+        """Attempt to get growth factor, if missing use default constant"""
         df = df_this.loc[df_this.iso == iso]
         if df.shape[0] > 0:
             return df
-
-        if iso in df_anyiam.index:
-            df = df_anyiam.loc[iso]
-            if df.shape[0] > 0:
-                return df
-
-        return df_global
+                               
+        return df_default
 
     def get_timeseries(self, hierid):
         """Return an np.array of GDPpc for the given region."""
         
-        iso_gdppcs = self.get_iso_timeseries(hierid[:3])
+        iso_pop = self.get_iso_timeseries(hierid[:3])
         ratio = self.df_nightlights.loc[self.df_nightlights.hierid == hierid].gdppc_ratio
         if len(ratio) == 0:
             return iso_gdppcs # Assume all combined
@@ -140,14 +136,15 @@ class HierarchicalPopulationProvider(provider.BySpaceProvider):
 
     @lru_cache(maxsize=None)
     def get_iso_timeseries(self, iso):
+        set_trace() 
         """Return an np.array of GDPpc for the given ISO country."""
-        # Select baseline GDPpc
+        # Select baseline pop
         df_baseline = self._get_best_iso_available(
             iso,
-            self.df_baseline_this,
-            self.df_baseline_anyiam,
-            self.baseline_global
+            self.df_ir_pops,
+            pd.DataFrame({'ISO': [iso], 'pop': [np.nan]})
         )
+                               
         baseline = df_baseline.value
         if isinstance(baseline, pd.Series):
             baseline = baseline.values[0]
@@ -156,12 +153,11 @@ class HierarchicalPopulationProvider(provider.BySpaceProvider):
         df_growth = self._get_best_iso_available(
             iso,
             self.df_growth_this,
-            self.df_growth_anyiam,
-            self.growth_global
+            self.df_growth_default
         )
 
-        # Calculate GDPpc as they grow in time
-        gdppcs = [baseline]
+        # Calculate pop as they grow in time
+        pop = [baseline]
         for year in range(self.startyear + 1, self.stopyear + 1):
             yearindex = int((year - 1 - self.startyear) / 5) # Last year's growth
             growthrate = df_growth.loc[df_growth.yearindex == yearindex].growth.values
